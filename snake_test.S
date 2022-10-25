@@ -15,8 +15,7 @@
 .define NMI_PeriodCLEAR $0D
 
 .define CanMoveBool $0E
-r_seed:
-    .db	$3		; prng seed byte (must not be zero)
+
 NMI_MOVE_VALUE:
     .db	$10		; prng seed byte (must not be zero)
 NMI_CLEAR_VALUE:
@@ -37,11 +36,11 @@ start:
     JSR clear_zero_page_loop
     LDA #27
     STA FruitColor  
-    JSR draw_elements
     LDA r_seed
     
     STA $0701
     JSR LoadFruit
+    JSR draw_elements
     
     LDX #0 ; starting x point of the dot
     STX $06
@@ -69,16 +68,16 @@ clear_zero_page_loop:
     BNE clear_zero_page_loop
     RTS
 NMI:
-    CHECK_NMI_CLEAR:
-        DEC NMI_PeriodCLEAR
-        BNE CHECK_NMI_MOVE
+    ; ;CHECK_NMI_CLEAR:
+    ;     ;DEC NMI_PeriodCLEAR
+    ;     ;BNE CHECK_NMI_MOVE
 
-        NMI_Clear_Expired:
-            JSR clear_crt
-            JSR draw_elements
-            LDA NMI_CLEAR_VALUE
-            STA NMI_PeriodCLEAR
-            JMP end_NMI
+    ;     NMI_Clear_Expired:
+    ;         JSR clear_crt
+    ;         JSR draw_elements
+    ;         LDA NMI_CLEAR_VALUE
+    ;         STA NMI_PeriodCLEAR
+    ;         ;JMP end_NMI
 
 
     CHECK_NMI_MOVE:
@@ -119,7 +118,9 @@ LoadFruit:
     LDA FruitColor
     STA $0200,X
     RTS
+
 game_loop:
+      
     LDA CanMoveBool
     CMP #1
     BNE game_loop
@@ -135,48 +136,8 @@ game_loop:
     LDA $4000
     CMP $03
     BEQ move_right
-    
+    JMP game_loop
 
-colorPosition:
-    LDA #0
-    STA CanMoveBool
-    ;JSR clear_crt
-    ;JSR draw_elements
-    LDA $05 ;color of player
-    LDX PlayerPosition
-    STA $0200,X
-   
-    LDX Points
-    CPX #0
-    BEQ end_ColorPosition
-
-    LDX #0
-    
-    LoopColor:
-        LDY $0300,X
-        STA $0200,Y
-        INX
-        CPX Points
-        BNE LoopColor
-
-    end_ColorPosition:
-        JMP game_loop
-
-calculate_position:
-    CLC     ;otherwise cell is not cleared properly
-    
-    LDX PlayerPosition
-   
-    LDA #0  
-    ADC Player_Y
-    ASL A
-    ASL A
-    ASL A
-    ASL A
-    ADC Player_X
-    STA PlayerPosition    ; momentarily store Accumulator's value in a new address to move it to X
-    ;LDX PlayerPosition     ; i read A's value and move it to x
-    RTS
 
 move_up:
     ;JSR removePreviousCell
@@ -235,6 +196,54 @@ move_right:
    
     
     JMP colorPosition
+colorPosition:
+    JSR clear_crt     
+    JSR draw_elements
+    LDA #0
+    STA CanMoveBool
+    ;JSR clear_crt
+    ;JSR draw_elements
+    LDA $05 ;color of player
+    LDX PlayerPosition
+    STA $0200,X
+   
+    LDX Points
+    ;DEX
+    CPX #0
+    BEQ end_ColorPosition
+
+    LDX #0
+    LDY Points
+    DEY
+    STY $0400 ;points -1
+    LDY #0
+    LoopColor:
+        LDA $05 ;color of player
+        LDY $0300,X
+        STA $0200,Y
+        INX
+        LDA $0400
+        CPX Points
+        BNE LoopColor
+        
+    end_ColorPosition:
+        JMP game_loop
+
+calculate_position:
+    CLC     ;otherwise cell is not cleared properly
+    
+    LDX PlayerPosition
+   
+    LDA #0  
+    ADC Player_Y
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ADC Player_X
+    STA PlayerPosition    ; momentarily store Accumulator's value in a new address to move it to X
+    ;LDX PlayerPosition     ; i read A's value and move it to x
+    RTS
 
 clear_leftmost_halfbyte:        
         ; I DO THIS TO PREVENT INACCURATE MOVEMENT AND SQUARE MOVING DOWN/UP ON HORIZONTAL OVERFLOW
@@ -250,7 +259,7 @@ clear_leftmost_halfbyte:
     LSR A
     RTS
 
-removePreviousCell:
+;removePreviousCell:
     ; JSR calculate_position
     ; LDA #0
     ; STA $0200,X
@@ -281,21 +290,36 @@ CheckFruit:
 
 OnFruitPickUp:
     INC Points
-    
+
+    LDY FruitPosition
+    LDA $05
+    STA $0200,Y
+    LDX Points
+    LDA FruitPosition
+    STA $0300,X
     JSR LoadFruit
     RTS
 
 RecordPositionInQueue:
-     LDX PositionQueueIndex
-     CPX Points
-     BEQ END_Record
+    LDX Points
+    CPX #0
+    BEQ END_Record
+    LDX PositionQueueIndex
+    ;CPX Points
+    ;BEQ ResetIndex
     
     ;RPIQ_loop_Start:
+    
         LDA PlayerPosition
         STA $0300,X
         INX
         STX PositionQueueIndex
-        CPX Points
+        LDA PositionQueueIndex
+        SBC #1
+        STA $0400
+        LDX Points
+        DEX
+        CPX $0400
         BEQ ResetIndex
         JMP END_Record
     ResetIndex:
@@ -333,6 +357,8 @@ random_test:
         STA	$0701		; save number as next seed
         RTS			    ; done
 
+r_seed:
+    .db	$3		; prng seed byte (must not be zero)
 .goto $FFFA
 .dw NMI
 .dw start
