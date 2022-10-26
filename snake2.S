@@ -145,10 +145,11 @@ move_up:
     SEC
     LDA Player_Y
     SBC #1
-    STA Player_Y
+    
     JSR clear_leftmost_halfbyte
-    CLC
+    STA Player_Y
     JMP OnMove
+    CLC
 
 move_down:
     ;JSR removePreviousCell
@@ -156,10 +157,10 @@ move_down:
     CLC
     LDA Player_Y
     ADC #1
-    SEC
+    ;SEC
     JSR clear_leftmost_halfbyte
     STA Player_Y
-    CLC
+    ;CLC
     JMP OnMove
 
 move_left:
